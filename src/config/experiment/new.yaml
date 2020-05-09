@@ -1,0 +1,8 @@
+hydra:
+  run:
+    dir: log/train/${experiment.name}
+
+experiment:
+  mode: new
+  prefix: null
+  name: ${experiment.prefix}_${now:%Y-%m%d-%H%M-%S}

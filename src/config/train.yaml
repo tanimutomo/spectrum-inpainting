@@ -1,0 +1,33 @@
+defaults:
+  experiment: ?
+
+data:
+  root: ~/data
+  dataset: places2
+  batch_size: 18
+  resol: 256
+
+loss:
+  valid: 1.0
+  hole: 6.0
+  tv: 0.1
+  perc: 0.05
+  style: 120.0
+
+optim:
+  method: Adam
+  max_iter: 200000
+  initial_lr: 0.0002
+  finetune_lr: 0.0005
+  momentum: 0
+  weight_decay: 0
+
+comet:
+  project: null
+  tags: null
+  resume_key: null
+
+vis_interval: 1000
+save_interval: 1000
+gpu_ids:
+  - 0

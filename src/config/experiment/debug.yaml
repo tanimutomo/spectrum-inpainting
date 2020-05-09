@@ -1,0 +1,10 @@
+hydra:
+  run:
+    dir: log/train/debug
+
+experiment:
+  mode: debug
+  name: debug
+
+optim:
+  max_iter: 1000
