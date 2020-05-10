@@ -4,6 +4,10 @@ import hydra
 
 from modules.model import get_model()
 from modules.dataset import get_dataloader()
+from modules.fourier import (
+    FourierTransform,
+    InverseFourierTransform,
+)
 
 
 @hydra.main(config_path="config/train.yaml")
@@ -33,7 +37,8 @@ def main(cfg):
     last_iter, model_sd, optimizer_sd = experiment.load_ckpt()
 
     # model
-    model = get_model()
+    model = get_model(cfg.model.name, FourierTransform(),
+                      InverseFourierTransform(), cfg.model.use_image)
     if model_sd is not None:
         model.load_state_dict(model_sd)
     model.to(device)
@@ -52,7 +57,10 @@ def main(cfg):
         optimizer.load_state_dict(optimizer_sd)
 
     # Loss fucntion
-    criterion = InpaintingLoss(VGG16FeatureExtractor(), cfg.loss).to(device)
+    criterion = InpaintingLoss(
+        cfg.loss, VGG16FeatureExtractor(),
+        FourierTransform(), InverseFourierTransform(),
+    ).to(device)
 
     trainer = Trainer(device, model, experiment)
     trainer.prepare_training(train_loader, val_loader, criterion, optimizer)

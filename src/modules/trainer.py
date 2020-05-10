@@ -1,7 +1,10 @@
+import torch
+
+from modules.misc import AverageMeter
 
 
 class Trainer(object):
-    def __init__(self, device, model, experiment):
+    def __init__(self, device, model, fourier_transform, experiment):
         self.device = device
         self.model = model
         self.experiment = experiment
@@ -15,21 +18,15 @@ class Trainer(object):
     def training(self, begin_iter :int, max_iter :int, test_interval :int):
         for itr, (inp, mask, gt) in enumerate(self.train_loader):
             self.experiemnt.iter = itr
-            loss_dict, output = train_one(inp, mask, gt)
+            loss_dict, save_inp = train_one(inp, mask, gt)
             if itr % (max_iter//100) == 0:
                 self.experiment.report("train", loss_dict)
-                self.experiment.save_image(
-                    torch.stack([inp[0], mask[0], output[0], gt[0]], dim=0),
-                    f"train_{itr}.png"
-                )
+                self.experiment.save_image(save_inp, f"train_{itr}.png")
             
             if itr % test_interval == 0:
-                loss_dict, output = self.test(self.test_loader)
-                self.experiment.report("test", loss_dict)
-                self.experiment.save_image(
-                    torch.stack([inp[0], mask[0], output[0], gt[0]], dim=0),
-                    f"test_{itr}.png"
-                )
+                loss_meters, save_inp = self.test(self.test_loader)
+                self.experiment.report("test", loss_meters)
+                self.experiment.save_image(save_inp, f"test_{itr}.png")
 
                 self.experiemnt.save_ckpt(self.model, self.optimizer)
 
@@ -41,8 +38,10 @@ class Trainer(object):
         mask = mask.to(self.device)
         gt = gt.to(self.device)
 
-        out, _ = self.model(inp, mask)
-        loss_dict = self.criterion(inp, mask, out, gt)
+        out_spectrum, out_image = self.model(inp, mask)
+        loss_dict = self.criterion(
+            inp, mask, out_spectrum, out_image, gt,
+        )
         loss = sum(lise(loss_dict.values()))
 
         self.optimizer.zero_grad()
@@ -50,12 +49,22 @@ class Trainer(object):
         self.optimizer.step()
 
         loss_dict['total'] = loss
+        out_comp = (mask * inp + (1 - mask) * out_image).cpu().detach()
         return (
             {k: v.item() for k, v in loss_dict.items()},
-            (mask * inp + (1 - mask) * out).cpu().detach(),
+            torch.stack([inp[0], mask[0], out_comp[0], gt[0]], dim=0)
         )
 
     def test(self, test_loader) -> dict:
+        loss_meters = {
+            "spectrum": AverageMeter(),
+            "valid": AverageMeter(),
+            "hole": AverageMeter(),
+            "perc": AverageMeter(),
+            "style": AverageMeter(),
+            "tv": AverageMeter(),
+            "total": AverageMeter(),
+        }
         self.model.eval()
         with torch.no_grad():
             for itr, (inp, mask, gt) in enumerate(test_loader):
@@ -65,8 +74,10 @@ class Trainer(object):
                 mask = mask.to(self.device)
                 gt = gt.to(self.device)
 
-                out, _ = self.model(inp, mask)
-                loss_dict = self.criterion(inp, mask, out, gt)
+                out_spectrum, out_image = self.model(inp, mask)
+                loss_dict = self.criterion(
+                    inp, mask, out_spectrum, out_image, gt
+                )
                 loss = sum(lise(loss_dict.values()))
 
                 self.optimizer.zero_grad()
@@ -74,7 +85,8 @@ class Trainer(object):
                 self.optimizer.step()
 
                 loss_dict['total'] = loss
-                return (
-                    {k: v.item() for k, v in loss_dict.items()},
-                    (mask * inp + (1 - mask) * out).cpu().detach(),
-                )
+                for name, loss in loss_dict.items():
+                    loss_meters[name].update(loss.item())
+
+        out_comp = (mask * inp + (1 - mask) * out_image).cpu().detach()
+        return loss_meters, torch.stack([inp[0], mask[0], out_comp[0], gt[0]], dim=0)

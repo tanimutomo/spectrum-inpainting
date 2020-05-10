@@ -11,6 +11,8 @@ from torchvision import transforms
 from torchvision.utils import save_image
 import yaml
 
+from modules.misc import AverageMeter
+
 
 class ExperimentController(object):
     def __init__(self, cfg):
@@ -52,15 +54,16 @@ class ExperimentController(object):
         max_iter = self.cfg.optim.max_iter if not test else 0
         report = f'{mode.upper()} [{self.iter:d}/{max_iter:d}]  '
         for name, meter in meters.items():
-            report += f'{name} = {meter.avg:.2f} / '
+            value = meter.avg if isinstance(meter, AverageMeter) else meter
+            report += f'{name} = {value:.2f} / '
             log = {'iter': self.iter,
                    'ts': moment.now().format('YYYY-MMDD-HHmm-ss')}
-            log[mode+name] = meter.avg
+            log[mode+name] = value
             if not self.comet:
                 continue
             self.comet.log_metric(
                 f'{mode}-{name}',
-                meter.avg, step=self.iter
+                value, step=self.iter
             )
         self.save_log(log)
         print(report)
