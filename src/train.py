@@ -1,13 +1,22 @@
 from comet_ml import Experiment
 
-import hydra
+import os
 
-from modules.model import get_model()
-from modules.dataset import get_dataloader()
+import hydra
+from hydra.utils import get_original_cwd
+import torch
+import torch.nn as nn
+
+from modules.experiment import ExperimentController
+from modules.trainer import Trainer
+from modules.dataset import get_dataloader
+from modules.model import get_model
+from modules.loss import InpaintingLoss, VGG16FeatureExtractor
 from modules.fourier import (
     FourierTransform,
     InverseFourierTransform,
 )
+from modules.misc import set_seed
 
 
 @hydra.main(config_path="config/train.yaml")
@@ -25,12 +34,12 @@ def main(cfg):
     device = torch.device(f'cuda:{cfg.gpu_ids[0]}')
 
     train_loader = get_dataloader(
-        cfg.data.data_root, cfg.data.dataset,
-        cfg.data.batch_size, train=True
+        cfg.data.root, cfg.data.dataset,
+        cfg.data.batch_size, train=True,
     )
     test_loader = get_dataloader(
-        cfg.data.data_root, cfg.data.dataset,
-        cfg.data.batch_size, train=True
+        cfg.data.root, cfg.data.dataset,
+        cfg.data.batch_size, train=False,
     )
 
     # resume training
@@ -47,7 +56,7 @@ def main(cfg):
 
     # optimizer
     if cfg.optim.method == "Adam":
-        optimizer = optim.Adam(
+        optimizer = torch.optim.Adam(
             model.parameters(), lr=cfg.optim.initial_lr,
             weight_decay=cfg.optim.weight_decay,
         )
@@ -63,7 +72,15 @@ def main(cfg):
     ).to(device)
 
     trainer = Trainer(device, model, experiment)
-    trainer.prepare_training(train_loader, val_loader, criterion, optimizer)
-    trainer.training(last_iter+1)
+    trainer.prepare_training(train_loader, test_loader, criterion, optimizer)
+    trainer.training(last_iter+1, cfg.optim.max_iter, cfg.test_interval)
 
     experiment.save_model(trainer.model)
+
+
+def is_config_valid(cfg):
+    print(cfg.pretty())
+
+
+if __name__ == "__main__":
+    main()

@@ -9,7 +9,7 @@ class FourierTransform(object):
     def __call__(self, x):
         z = torch.fft(torch.stack([x, x], dim=-1), 2)
         z = zshift(z)
-        return batch_standadize(z)
+        return batch_standadize(z[..., 0])
 
 
 class InverseFourierTransform(object):
@@ -17,6 +17,7 @@ class InverseFourierTransform(object):
         pass
 
     def __call__(self, z):
+        z = torch.stack([z, z], dim=-1)
         z = zshift(z)
         x = torch.ifft(z, 2)[..., 0]
         return batch_standadize(x)

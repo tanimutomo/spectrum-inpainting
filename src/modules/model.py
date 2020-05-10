@@ -21,10 +21,11 @@ class SpectrumUNet(nn.Module):
 
     def __init__(self, fourier_transform, inverse_fourier_transform, use_image=False):
         super().__init__()
+        self.use_image = use_image
         self.image_encoder = ImageEncoder(self.enc_in_ch, self.ft_ch)
         self.spectrum_encoder = SpectrumEncoder(self.enc_in_ch, self.ft_ch)
 
-        gen_in_ch = ft_ch * 16 if use_image else ft_ch * 8
+        gen_in_ch = self.ft_ch * 24 if use_image else self.ft_ch * 16
         self.spectrum_generator = SpectrumGenerator(
             gen_in_ch, self.ft_ch, self.enc_in_ch, self.gen_out_ch,
         )
@@ -36,14 +37,36 @@ class SpectrumUNet(nn.Module):
         features = self.spectrum_encoder(
             self.to_spectrum(torch.cat([inp, mask], dim=1))
         )
-        if use_image:
+        if self.use_image:
             image_feature = self.image_encoder(
                 torch.cat([inp, mask], dim=1),
             )[-1]
-            features[-1] = torch.cat([features[-1] image_feature], dim=1)
+            features[-1] = torch.cat([features[-1], image_feature], dim=1)
         out_spectrum = self.spectrum_generator(features)
         out_image = self.to_image(out_spectrum)
         return out_spectrum, out_image
+
+
+class BaseEncoder(nn.Module):
+    def __init__(self, in_ch, ft_ch):
+        super().__init__()
+        self.encoder = nn.ModuleList([
+            ConvLayer(  in_ch,   ft_ch, 7, padding=3, bn=False),
+            ConvLayer(  ft_ch, ft_ch*2, 5, padding=2),
+            ConvLayer(ft_ch*2, ft_ch*4, 5, padding=2),
+            ConvLayer(ft_ch*4, ft_ch*8, 3),
+            ConvLayer(ft_ch*8, ft_ch*8, 3),
+            ConvLayer(ft_ch*8, ft_ch*8, 3),
+            ConvLayer(ft_ch*8, ft_ch*8, 3),
+            ConvLayer(ft_ch*8, ft_ch*8, 3),
+        ])
+    
+    def forward(self, x):
+        features = [x]
+        for layer in self.encoder:
+            x = layer(x)
+            features.append(x)
+        return features
 
 
 class ImageEncoder(BaseEncoder):
@@ -78,40 +101,19 @@ class SpectrumGenerator(nn.Module):
         return y
 
 
-class BaseEncoder(nn.Module):
-    def __init__(self, in_ch, ft_ch):
-        self.encoder = nn.ModuleList([
-            ConvLayer(  in_ch,   ft_ch, 7, padding=3, bn=False),
-            ConvLayer(  ft_ch, ft_ch*2, 5, padding=2),
-            ConvLayer(ft_ch*2, ft_ch*4, 5, padding=2),
-            ConvLayer(ft_ch*4, ft_ch*8, 3),
-            ConvLayer(ft_ch*8, ft_ch*8, 3),
-            ConvLayer(ft_ch*8, ft_ch*8, 3),
-            ConvLayer(ft_ch*8, ft_ch*8, 3),
-            ConvLayer(ft_ch*8, ft_ch*8, 3),
-        ])
-    
-    def forward(self, x):
-        features = [x]
-        for layer in in self.encoder:
-            x = layer(x)
-            features.append(x)
-        return features
-
-
 class ConvLayer(nn.Module):
     def __init__(self, in_ch, out_ch, k_size, stride=2, padding=1,
                  bn=True, bias=False, act="relu"):
         super().__init__()
         self.layers = []
         self.layers.append(nn.Conv2d(in_ch, out_ch, k_size, stride, padding, bias=False))
-        if self.bn:
+        if bn:
             self.layers.append(nn.BatchNorm2d(out_ch))
-        if self.act == "relu":
+        if act == "relu":
             self.layers.append(nn.ReLU())
-        elif self.act == "leaky_relu":
+        elif act == "leaky_relu":
             self.layers.append(nn.LeakyReLU(negative_slope=0.2))
-        elif self.act is None:
+        elif act is None:
             pass
         else:
             raise NotImplementedError("activation functions should be in [relu, leaky_relu]")

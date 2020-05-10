@@ -6,7 +6,7 @@ from torchvision import models
 
 class InpaintingLoss(nn.Module):
     def __init__(self, coef, extractor,
-                 fourier_transform, inverse_forurier_transform):
+                 fourier_transform, inverse_fourier_transform):
         super().__init__()
         self.coef = coef
         self.extractor = extractor
@@ -22,7 +22,7 @@ class InpaintingLoss(nn.Module):
         spectrum_loss = F.l1_loss(out_spectrum, gt_spectrum)
 
         # Total Variation Regularization
-        tv_loss = total_variation_loss(comp, mask, self.tv_loss)
+        tv_loss = total_variation_loss(comp, mask)
 
         # Hole Pixel Loss
         hole_loss = F.l1_loss((1-mask) * out_image, (1-mask) * gt)
@@ -129,17 +129,3 @@ def total_variation_loss(image, mask):
            torch.mean(torch.abs(rows_in_Pset*(
                 image[:, :, :1, :] - image[:, :, -1:, :])))
     return loss
-
-
-if __name__ == '__main__':
-    from config import get_config
-    config = get_config()
-    vgg = VGG16FeatureExtractor()
-    criterion = InpaintingLoss(config['loss_coef'], vgg)
-
-    img = torch.randn(1, 3, 500, 500)
-    mask = torch.ones((1, 1, 500, 500))
-    mask[:, :, 250:, :][:, :, :, 250:] = 0
-    inp = img * mask
-    out = torch.randn(1, 3, 500, 500)
-    loss = criterion(inp, mask, out, img)

@@ -1,8 +1,8 @@
 defaults:
-  experiment: ?
+  - experiment: ???
 
 data:
-  root: ~/data
+  root: /home/tanimu/data
   dataset: places2
   batch_size: 18
   resol: 256
@@ -12,6 +12,7 @@ model:
   use_image: False
 
 loss:
+  spectrum: 1.0
   valid: 1.0
   hole: 6.0
   tv: 0.1
@@ -32,5 +33,6 @@ comet:
   resume_key: null
 
 test_interval: 1000 # save ckpt when testing
+seed: null
 gpu_ids:
-  - 0
+  - 1

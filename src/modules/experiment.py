@@ -98,7 +98,7 @@ class ExperimentController(object):
 
     def load_ckpt(self):
         if not self.cfg.comet.resume_key:
-            return 0, None, None, None
+            return 0, None, None
         if not os.path.exists(self.cfg.comet.resume_key):
             raise ValueError(f'The specified experiment ({self.cfg.experiment.name}) is not existed.')
         ckpt = torch.load('checkpoint.pth', map_location='cpu')

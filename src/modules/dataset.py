@@ -1,8 +1,9 @@
 import random
 from glob import glob
+from itertools import repeat
 
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
 
@@ -30,16 +31,16 @@ def repeater(data_loader):
 
 
 class Places2(Dataset):
-    def __init__(self, data_root, img_transform, mask_transform, data='train'):
+    def __init__(self, root, img_transform, mask_transform, train=True):
         super(Places2, self).__init__()
         self.img_transform = img_transform
         self.mask_transform = mask_transform
 
         # get the list of image paths
-        img_dir = "data_256" if train else "val_256"
+        img_dir = "data_256_tmp" if train else "val_256"
         mask_dir = "mask" if train else "val_mask"
-        self.img_paths = glob(f"{data_root}/{img_dir}/**/*.jpg", recursive=True)
-        self.mask_paths = glob(f"{data_root}/{mask_dir}/*.png", recursive=True)
+        self.img_paths = glob(f"{root}/places2/{img_dir}/**/*.jpg", recursive=True)
+        self.mask_paths = glob(f"{root}/places2/{mask_dir}/*.png", recursive=True)
 
     def __len__(self):
         return len(self.img_paths)
@@ -50,7 +51,7 @@ class Places2(Dataset):
         mask = Image.open(self.mask_paths[
             random.randint(0, len(self.mask_paths) - 1)
         ])
-        mask = self.mask_transform(mask.convert('RGB'))
+        mask = self.mask_transform(mask.convert('L'))
         return img * mask, mask, img
 
     def _load_img(self, path):
