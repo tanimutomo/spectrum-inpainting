@@ -4,7 +4,7 @@ defaults:
 data:
   root: /home/tanimu/data
   dataset: places2
-  batch_size: 18
+  batch_size: 32
   resol: 256
 
 model:
@@ -21,14 +21,14 @@ loss:
 
 optim:
   method: Adam
-  max_iter: 200000
-  initial_lr: 0.0002
+  max_iter: 100000
+  initial_lr: 0.0004
   finetune_lr: 0.0005
   momentum: 0
   weight_decay: 0
 
 comet:
-  project: null
+  use: False
   tags: null
   resume_key: null
 

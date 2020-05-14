@@ -27,7 +27,7 @@ def main(cfg):
 
     # Experiment and Set comet
     experiment = ExperimentController(cfg)
-    if cfg.comet.project:
+    if cfg.comet.use:
         experiment.set_comet(os.path.join(get_original_cwd(), '.comet'))
 
     # Device

@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 
 from modules.misc import AverageMeter
 
@@ -30,8 +31,11 @@ class Trainer(object):
 
                 self.experiment.save_ckpt(self.model, self.optimizer)
 
+            if itr == max_iter:
+                print("End Training.")
+                return
+
     def train_one(self, inp, mask, gt) -> dict:
-        # set the model to training mode
         self.model.train()
 
         inp = inp.to(self.device)
@@ -68,21 +72,22 @@ class Trainer(object):
         }
         self.model.eval()
         with torch.no_grad():
-            for itr, (inp, mask, gt) in enumerate(test_loader):
-                # set the model to training mode
+            with tqdm(test_loader, ncols=80, leave=False) as pbar:
+                for itr, (inp, mask, gt) in enumerate(pbar):
+                    inp = inp.to(self.device)
+                    mask = mask.to(self.device)
+                    gt = gt.to(self.device)
 
-                inp = inp.to(self.device)
-                mask = mask.to(self.device)
-                gt = gt.to(self.device)
+                    out_spectrum, out_image = self.model(inp, mask)
+                    loss_dict = self.criterion(
+                        inp, mask, out_spectrum, out_image, gt
+                    )
+                    loss = sum(list(loss_dict.values()))
+                    loss_dict['total'] = loss
+                    for name, loss in loss_dict.items():
+                        loss_meters[name].update(loss.item())
 
-                out_spectrum, out_image = self.model(inp, mask)
-                loss_dict = self.criterion(
-                    inp, mask, out_spectrum, out_image, gt
-                )
-                loss = sum(list(loss_dict.values()))
-                loss_dict['total'] = loss
-                for name, loss in loss_dict.items():
-                    loss_meters[name].update(loss.item())
+                    pbar.set_postfix_str(f'loss={loss_dict["total"].item():.4f}')
 
         out_comp = mask * inp + (1 - mask) * out_image
         mask_3c = torch.cat([mask]*3, dim=1)

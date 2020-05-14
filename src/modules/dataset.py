@@ -18,7 +18,7 @@ def get_dataloader(data_root :str, dataset_name :str, batch_size :int, train :bo
     else:
         raise NotImplementedError(f"Implemented Datasets are {DATASETS}")
     data_loader = DataLoader(dataset, batch_size=batch_size,
-                                shuffle=train, num_workers=4)
+                                shuffle=train, num_workers=8)
     if train:
         data_loader = repeater(data_loader)
     return data_loader
@@ -37,6 +37,7 @@ class Places2(Dataset):
         self.mask_transform = mask_transform
 
         # get the list of image paths
+        # img_dir = "data_256" if train else "val_256"
         img_dir = "data_256_tmp" if train else "val_256"
         mask_dir = "mask" if train else "val_mask"
         self.img_paths = glob(f"{root}/places2/{img_dir}/**/*.jpg", recursive=True)

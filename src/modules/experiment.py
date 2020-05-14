@@ -25,7 +25,7 @@ class ExperimentController(object):
             comet = yaml.safe_load(f)
 
         exp_args = dict(
-            project_name=self.cfg.comet.project,
+            project_name=comet['project'],
             workspace=comet['workspace'],
             api_key=comet['api_key'],
             auto_param_logging=False,
@@ -41,7 +41,9 @@ class ExperimentController(object):
             comet.set_name(self.cfg.experiment.name)
 
         comet.log_parameters(to_flat_dict(self.cfg.to_container()))
-        if isinstance(self.cfg.comet.tags, str):
+        if self.cfg.comet.tags is None:
+            pass
+        elif isinstance(self.cfg.comet.tags, str):
             comet.add_tag(self.cfg.comet.tags)
         else:
             comet.add_tags(self.cfg.comet.tags.to_container())
