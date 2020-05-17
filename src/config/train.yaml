@@ -32,6 +32,7 @@ comet:
   tags: null
   resume_key: null
 
+img_interval: 100
 test_interval: 1000 # save ckpt when testing
 seed: null
 gpu_ids:

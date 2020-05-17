@@ -73,7 +73,7 @@ def main(cfg):
 
     trainer = Trainer(device, model, experiment)
     trainer.prepare_training(train_loader, test_loader, criterion, optimizer)
-    trainer.training(last_iter+1, cfg.optim.max_iter, cfg.test_interval)
+    trainer.training(last_iter+1, cfg.optim.max_iter, cfg.img_interval, cfg.test_interval)
 
     experiment.save_model(trainer.model)
 

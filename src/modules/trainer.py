@@ -16,15 +16,17 @@ class Trainer(object):
         self.criterion = criterion
         self.optimizer = optimizer
 
-    def training(self, begin_iter :int, max_iter :int, test_interval :int):
+    def training(self, begin_iter :int, max_iter :int, img_interval :int, test_interval :int):
         print("Start Training...")
         for itr, (inp, mask, gt) in enumerate(self.train_loader, begin_iter):
             self.experiment.iter = itr
             loss_dict, save_inp = self.train_one(inp, mask, gt)
             self.experiment.report("train", loss_dict)
+
+            if itr % img_interval == 0:
+                self.experiment.save_image(save_inp, f"train_{itr}.png")
             
             if itr % test_interval == 0:
-                self.experiment.save_image(save_inp, f"train_{itr}.png")
                 loss_meters, save_inp = self.test(self.test_loader)
                 self.experiment.report("test", loss_meters)
                 self.experiment.save_image(save_inp, f"test_{itr}.png")
