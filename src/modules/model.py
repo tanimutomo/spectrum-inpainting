@@ -15,36 +15,44 @@ def get_model(model_name, ft, ift, use_image :bool):
 
 
 class SpectrumUNet(nn.Module):
-    enc_in_ch = 4
+    spec_enc_in_ch = 8
+    img_enc_in_ch = 8
     ft_ch = 64
-    gen_out_ch = 3
+    gen_out_ch = 6
 
     def __init__(self, fourier_transform, inverse_fourier_transform, use_image=False):
         super().__init__()
         self.use_image = use_image
-        self.image_encoder = ImageEncoder(self.enc_in_ch, self.ft_ch)
-        self.spectrum_encoder = SpectrumEncoder(self.enc_in_ch, self.ft_ch)
+        self.image_encoder = ImageEncoder(self.img_enc_in_ch, self.ft_ch)
+        self.spectrum_encoder = SpectrumEncoder(self.spec_enc_in_ch, self.ft_ch)
 
         gen_in_ch = self.ft_ch * 24 if use_image else self.ft_ch * 16
         self.spectrum_generator = SpectrumGenerator(
-            gen_in_ch, self.ft_ch, self.enc_in_ch, self.gen_out_ch,
+            gen_in_ch, self.ft_ch, self.spec_enc_in_ch, self.gen_out_ch,
         )
 
         self.to_spectrum = fourier_transform
         self.to_image = inverse_fourier_transform
     
-    def forward(self, inp, mask):
-        features = self.spectrum_encoder(
-            self.to_spectrum(torch.cat([inp, mask], dim=1))
+    def forward(self, inp, mask, gt=None):
+        # Preprocess
+        inp = torch.where(
+            torch.cat([mask, mask, mask], dim=1) == 1, inp,
+            torch.mean(inp.view(inp.shape[0], -1), dim=1)[:, None, None, None],
         )
+        inp_spec = self.to_spectrum(inp)
+        mask_spec = self.to_spectrum(mask)
+
+        features = self.spectrum_encoder(torch.cat([inp_spec, mask_spec], dim=1))
         if self.use_image:
-            image_feature = self.image_encoder(
-                torch.cat([inp, mask], dim=1),
-            )[-1]
+            image_feature = self.image_encoder(torch.cat([inp, mask], dim=1))[-1]
             features[-1] = torch.cat([features[-1], image_feature], dim=1)
-        out_spectrum = self.spectrum_generator(features)
-        out_image = self.to_image(out_spectrum)
-        return out_spectrum, out_image
+        out_spec = self.spectrum_generator(features)
+        out_img = self.to_image(out_spec)
+
+        if gt is None:
+            return out_img, out_spec
+        return out_img, out_spec, self.to_spectrum(gt)
 
 
 class BaseEncoder(nn.Module):

@@ -1,11 +1,6 @@
 defaults:
   - experiment: ???
-
-data:
-  root: /home/tanimu/data
-  dataset: places2
-  batch_size: 32
-  resol: 256
+  - data: default
 
 model:
   name: spectrum_unet
@@ -22,7 +17,7 @@ loss:
 optim:
   method: Adam
   max_iter: 100000
-  initial_lr: 0.0004
+  initial_lr: 0.001 # 0.0004
   finetune_lr: 0.0005
   momentum: 0
   weight_decay: 0

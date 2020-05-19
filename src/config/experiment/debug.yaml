@@ -7,4 +7,6 @@ experiment:
   name: debug
 
 optim:
-  max_iter: 10
+  max_iter: 100
+
+img_interval: 100

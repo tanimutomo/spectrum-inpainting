@@ -5,33 +5,29 @@ from torchvision import models
 
 
 class InpaintingLoss(nn.Module):
-    def __init__(self, coef, extractor,
-                 fourier_transform, inverse_fourier_transform):
+    def __init__(self, coef, extractor):
         super().__init__()
         self.coef = coef
         self.extractor = extractor
-        self.to_spectrum = fourier_transform
-        self.to_image = inverse_fourier_transform
 
-    def forward(self, inp, mask, out_spectrum, out_image, gt) -> dict:
+    def forward(self, inp, mask, gt, out_img, out_spec, gt_spec) -> dict:
         # Non-hole pixels directly set to ground truth
-        comp = mask * inp + (1 - mask) * out_image
+        comp = mask * inp + (1 - mask) * out_img
 
         # Spectrum Loss
-        gt_spectrum = self.to_spectrum(gt)
-        spectrum_loss = F.l1_loss(out_spectrum, gt_spectrum)
+        spectrum_loss = F.l1_loss(out_spec, gt_spec)
 
         # Total Variation Regularization
         tv_loss = total_variation_loss(comp, mask)
 
         # Hole Pixel Loss
-        hole_loss = F.l1_loss((1-mask) * out_image, (1-mask) * gt)
+        hole_loss = F.l1_loss((1-mask) * out_img, (1-mask) * gt)
 
         # Valid Pixel Loss
-        valid_loss = F.l1_loss(mask * out_image, mask * gt)
+        valid_loss = F.l1_loss(mask * out_img, mask * gt)
 
         # Perceptual Loss and Style Loss
-        feats_out = self.extractor(out_image)
+        feats_out = self.extractor(out_img)
         feats_comp = self.extractor(comp)
         feats_gt = self.extractor(gt)
         perc_loss = 0.0

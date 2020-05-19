@@ -44,9 +44,9 @@ class Trainer(object):
         mask = mask.to(self.device)
         gt = gt.to(self.device)
 
-        out_spectrum, out_image = self.model(inp, mask)
+        out_img, out_spec, gt_spec = self.model(inp, mask, gt=gt)
         loss_dict = self.criterion(
-            inp, mask, out_spectrum, out_image, gt,
+            inp, mask, gt, out_img, out_spec, gt_spec,
         )
         loss = sum(list(loss_dict.values()))
 
@@ -55,11 +55,12 @@ class Trainer(object):
         self.optimizer.step()
 
         loss_dict['total'] = loss
-        out_comp = mask * inp + (1 - mask) * out_image
+        out_comp = mask * inp + (1 - mask) * out_img
         mask_3c = torch.cat([mask]*3, dim=1)
         return (
             {k: v.item() for k, v in loss_dict.items()},
-            torch.stack([inp[0], mask_3c[0], out_comp[0], gt[0]], dim=0).cpu().detach(),
+            torch.stack([inp[0], mask_3c[0], out_img[0], out_comp[0], gt[0]],
+                        dim=0).cpu().detach(),
         )
 
     def test(self, test_loader) -> dict:
@@ -80,9 +81,9 @@ class Trainer(object):
                     mask = mask.to(self.device)
                     gt = gt.to(self.device)
 
-                    out_spectrum, out_image = self.model(inp, mask)
+                    out_img, out_spec, gt_spec = self.model(inp, mask, gt=gt)
                     loss_dict = self.criterion(
-                        inp, mask, out_spectrum, out_image, gt
+                        inp, mask, gt, out_img, out_spec, gt_spec,
                     )
                     loss = sum(list(loss_dict.values()))
                     loss_dict['total'] = loss
@@ -91,9 +92,10 @@ class Trainer(object):
 
                     pbar.set_postfix_str(f'loss={loss_dict["total"].item():.4f}')
 
-        out_comp = mask * inp + (1 - mask) * out_image
+        out_comp = mask * inp + (1 - mask) * out_img
         mask_3c = torch.cat([mask]*3, dim=1)
         return (
             loss_meters,
-            torch.stack([inp[0], mask_3c[0], out_comp[0], gt[0]], dim=0).cpu().detach(),
+            torch.stack([inp[0], mask_3c[0], out_img[0], out_comp[0], gt[0]],
+                        dim=0).cpu().detach(),
         )

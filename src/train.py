@@ -33,14 +33,8 @@ def main(cfg):
     # Device
     device = torch.device(f'cuda:{cfg.gpu_ids[0]}')
 
-    train_loader = get_dataloader(
-        cfg.data.root, cfg.data.dataset,
-        cfg.data.batch_size, train=True,
-    )
-    test_loader = get_dataloader(
-        cfg.data.root, cfg.data.dataset,
-        cfg.data.batch_size, train=False,
-    )
+    train_loader = get_dataloader(cfg.data, train=True)
+    test_loader = get_dataloader(cfg.data, train=False)
 
     # resume training
     last_iter, model_sd, optimizer_sd = experiment.load_ckpt()
@@ -66,10 +60,7 @@ def main(cfg):
         optimizer.load_state_dict(optimizer_sd)
 
     # Loss fucntion
-    criterion = InpaintingLoss(
-        cfg.loss, VGG16FeatureExtractor(),
-        FourierTransform(), InverseFourierTransform(),
-    ).to(device)
+    criterion = InpaintingLoss(cfg.loss, VGG16FeatureExtractor()).to(device)
 
     trainer = Trainer(device, model, experiment)
     trainer.prepare_training(train_loader, test_loader, criterion, optimizer)

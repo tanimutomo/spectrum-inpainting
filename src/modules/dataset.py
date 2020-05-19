@@ -1,7 +1,9 @@
-import random
 from glob import glob
 from itertools import repeat
+import os
+import random
 
+from hydra.utils import get_original_cwd
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
@@ -11,13 +13,19 @@ DATASETS = [
     "places2"
 ]
 
-def get_dataloader(data_root :str, dataset_name :str, batch_size :int, train :bool):
-    if dataset_name == "places2":
-        dataset = Places2(data_root, transforms.ToTensor(),
+def get_dataloader(cfg, train :bool):
+    data_root = os.path.join(get_original_cwd(), cfg.root, str(cfg.dataset))
+    img_dir = cfg.train_img_dir if train else cfg.test_img_dir
+    mask_dir = cfg.train_mask_dir if train else cfg.test_mask_dir
+    if cfg.dataset == "places2":
+        dataset = Places2(data_root, img_dir, mask_dir, transforms.ToTensor(),
+                          transforms.ToTensor(), train=train)
+    elif isinstance(cfg.dataset, int):
+        dataset = Places2(data_root, img_dir, mask_dir, transforms.ToTensor(),
                           transforms.ToTensor(), train=train)
     else:
         raise NotImplementedError(f"Implemented Datasets are {DATASETS}")
-    data_loader = DataLoader(dataset, batch_size=batch_size,
+    data_loader = DataLoader(dataset, batch_size=cfg.batch_size,
                                 shuffle=train, num_workers=8)
     if train:
         data_loader = repeater(data_loader)
@@ -31,17 +39,13 @@ def repeater(data_loader):
 
 
 class Places2(Dataset):
-    def __init__(self, root, img_transform, mask_transform, train=True):
+    def __init__(self, root, img_dir, mask_dir, img_transform, mask_transform, train=True):
         super(Places2, self).__init__()
         self.img_transform = img_transform
         self.mask_transform = mask_transform
 
-        # get the list of image paths
-        # img_dir = "data_256" if train else "val_256"
-        img_dir = "data_256_tmp" if train else "val_256"
-        mask_dir = "mask" if train else "val_mask"
-        self.img_paths = glob(f"{root}/places2/{img_dir}/**/*.jpg", recursive=True)
-        self.mask_paths = glob(f"{root}/places2/{mask_dir}/*.png", recursive=True)
+        self.img_paths = glob(f"{root}/{img_dir}/**/*.jpg", recursive=True)
+        self.mask_paths = glob(f"{root}/{mask_dir}/*.png", recursive=True)
 
     def __len__(self):
         return len(self.img_paths)
