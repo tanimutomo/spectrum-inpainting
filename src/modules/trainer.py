@@ -58,14 +58,14 @@ class Trainer(object):
         out_comp = mask * inp + (1 - mask) * out_img
         mask_3c = torch.cat([mask]*3, dim=1)
         return (
-            {k: v.item() for k, v in loss_dict.items()},
+            {k: v.item() for k, v in loss_dict.items() if isinstance(v, torch.Tensor)},
             torch.stack([inp[0], mask_3c[0], out_img[0], out_comp[0], gt[0]],
                         dim=0).cpu().detach(),
         )
 
     def test(self, test_loader) -> dict:
         loss_meters = {
-            "spectrum": AverageMeter(),
+            "spec": AverageMeter(),
             "valid": AverageMeter(),
             "hole": AverageMeter(),
             "perc": AverageMeter(),
