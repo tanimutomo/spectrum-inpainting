@@ -7,9 +7,9 @@ MODEL_CHOICES = [
     "spectrum_unet"
 ]
 
-def get_model(model_name, ft, ift, use_image :bool):
+def get_model(model_name, ft, ift, use_image :bool, refinement :bool):
     if model_name == "spectrum_unet":
-        return SpectrumUNet(ft, ift, use_image=use_image)
+        return SpectrumUNet(ft, ift, use_image=use_image, refinement=refinement)
     else:
         raise NotImplementedError(f"Model choices are {MODEL_CHOICES}")
 
@@ -20,7 +20,8 @@ class SpectrumUNet(nn.Module):
     ft_ch = 64
     gen_out_ch = 6
 
-    def __init__(self, fourier_transform, inverse_fourier_transform, use_image=False):
+    def __init__(self, fourier_transform, inverse_fourier_transform,
+                 use_image=False, refinement=False):
         super().__init__()
         self.use_image = use_image
         self.image_encoder = ImageEncoder(self.img_enc_in_ch, self.ft_ch)
@@ -109,12 +110,23 @@ class SpectrumGenerator(nn.Module):
         return y
 
 
+class RefinementNetwork(nn.Module):
+    def __init__(self, in_ch, ft_ch, out_ch):
+        super().__init__()
+        self.network = nn.Sequential(
+            ConvLayer(in_ch, ft_ch, 5, 1, 2, bias=True,)
+        )
+
+
 class ConvLayer(nn.Module):
     def __init__(self, in_ch, out_ch, k_size, stride=2, padding=1,
-                 bn=True, bias=False, act="relu"):
+                 dilation=1, groups=1, bn=True, bias=False, act="relu"):
         super().__init__()
         self.layers = []
-        self.layers.append(nn.Conv2d(in_ch, out_ch, k_size, stride, padding, bias=False))
+        self.layers.append(nn.Conv2d(
+            in_ch, out_ch, k_size, stride=stride, padding=padding,
+            dilation=dilation, groups=groups, bias=False,
+        ))
         if bn:
             self.layers.append(nn.BatchNorm2d(out_ch))
         if act == "relu":

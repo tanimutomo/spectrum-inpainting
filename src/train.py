@@ -40,8 +40,10 @@ def main(cfg):
     last_iter, model_sd, optimizer_sd = experiment.load_ckpt()
 
     # model
-    model = get_model(cfg.model.name, FourierTransform(),
-                      InverseFourierTransform(), cfg.model.use_image)
+    model = get_model(
+        cfg.model.name, FourierTransform(), InverseFourierTransform(),
+        cfg.model.use_image, cfg.model.refinement
+    )
     if model_sd is not None:
         model.load_state_dict(model_sd)
     model.to(device)
