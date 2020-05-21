@@ -5,50 +5,49 @@ from torchvision import models
 
 
 class InpaintingLoss(nn.Module):
-    def __init__(self, coef, extractor):
+    def __init__(self, cfg, extractor):
         super().__init__()
-        self.coef = coef
         self.extractor = extractor
+        self.cfg = cfg
+        self.spec_criterion = NormLoss(cfg.spec.norm, cfg.spec.coef)
+        self.valid_criterion = NormLoss(cfg.valid.norm, cfg.valid.coef)
+        self.hole_criterion = NormLoss(cfg.hole.norm, cfg.hole.coef)
+        self.perc_criterion = NormLoss(cfg.perc.norm, cfg.perc.coef)
+        self.style_criterion = NormLoss(cfg.style.norm, cfg.style.coef)
 
     def forward(self, inp, mask, gt, out_img, out_spec, gt_spec) -> dict:
-        # Non-hole pixels directly set to ground truth
         comp = mask * inp + (1 - mask) * out_img
 
-        # Spectrum Loss
-        spectrum_loss = F.l1_loss(out_spec, gt_spec)
+        loss_dict = dict(spec=0.0, valid=0.0, hole=0.0,
+                         tv=0.0, perc=0.0, style=0.0)
 
-        # Total Variation Regularization
-        tv_loss = total_variation_loss(comp, mask)
+        if self.cfg.spec.coef:
+            loss_dict["spec"] = self.spec_criterion(out_spec, gt_spec)
 
-        # Hole Pixel Loss
-        hole_loss = F.l1_loss((1-mask) * out_img, (1-mask) * gt)
+        if self.cfg.valid.coef:
+            loss_dict["valid"] = self.valid_criterion(mask * out_img, mask * gt)
 
-        # Valid Pixel Loss
-        valid_loss = F.l1_loss(mask * out_img, mask * gt)
+        if self.cfg.hole.coef:
+            loss_dict["hole"] = self.hole_criterion((1-mask) * out_img, (1-mask) * gt)
 
-        # Perceptual Loss and Style Loss
-        feats_out = self.extractor(out_img)
-        feats_comp = self.extractor(comp)
-        feats_gt = self.extractor(gt)
-        perc_loss = 0.0
-        style_loss = 0.0
-        # Calculate the L1Loss for each feature map
-        for i in range(3):
-            perc_loss += F.l1_loss(feats_out[i], feats_gt[i])
-            perc_loss += F.l1_loss(feats_comp[i], feats_gt[i])
-            style_loss += F.l1_loss(gram_matrix(feats_out[i]),
-                                    gram_matrix(feats_gt[i]))
-            style_loss += F.l1_loss(gram_matrix(feats_comp[i]),
-                                    gram_matrix(feats_gt[i]))
+        if self.cfg.tv.coef:
+            loss_dict["tv"] = total_variation_loss(comp, mask)
 
-        return {
-            'spectrum': spectrum_loss * self.coef.spectrum,
-            'valid': valid_loss * self.coef.valid,
-            'hole': hole_loss * self.coef.hole,
-            'perc': perc_loss * self.coef.perc,
-            'style': style_loss * self.coef.style,
-            'tv': tv_loss * self.coef.tv
-        }
+        if self.cfg.perc.coef or self.cfg.style.coef:
+            feats_out = self.extractor(out_img)
+            feats_comp = self.extractor(comp)
+            feats_gt = self.extractor(gt)
+            for i in range(3):
+                if self.cfg.perc.coef:
+                    loss_dict["perc"] += self.perc_criterion(feats_out[i], feats_gt[i])
+                    loss_dict["perc"] += self.perc_criterion(feats_comp[i], feats_gt[i])
+                if self.cfg.style.coef:
+                    loss_dict["style"] += self.style_criterion(gram_matrix(feats_out[i]),
+                                                               gram_matrix(feats_gt[i]))
+                    loss_dict["style"] += self.style_criterion(gram_matrix(feats_comp[i]),
+                                                               gram_matrix(feats_gt[i]))
+
+        return loss_dict
 
 
 # The network of extracting the feature for perceptual and style loss
@@ -94,6 +93,21 @@ class Normalization(nn.Module):
             self.mean = self.mean.to(inp)
             self.std = self.std.to(inp)
         return (inp - self.mean) / self.std
+
+
+class NormLoss(nn.Module):
+    def __init__(self, norm :int, coef :float):
+        super().__init__()
+        if norm == 1:
+            self.criterion = nn.L1Loss()
+        elif norm == 2:
+            self.criterion = nn.MSELoss()
+        else:
+            raise NotImplementedError("norm should be 0 or 1.")
+        self.coef = coef
+
+    def forward(self, output, target):
+        return self.criterion(output, target) * self.coef
 
 
 # Calcurate the Gram Matrix of feature maps
