@@ -85,10 +85,11 @@ class Trainer(object):
                     loss_dict = self.criterion(
                         inp, mask, gt, out_img, out_spec, gt_spec,
                     )
-                    loss = sum(list(loss_dict.values()))
-                    loss_dict['total'] = loss
+                    loss_dict['total'] = sum(list(loss_dict.values()))
                     for name, loss in loss_dict.items():
-                        loss_meters[name].update(loss.item())
+                        if isinstance(loss, torch.Tensor):
+                            loss = loss.item()
+                        loss_meters[name].update(loss)
 
                     pbar.set_postfix_str(f'loss={loss_dict["total"].item():.4f}')
 

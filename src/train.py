@@ -41,7 +41,7 @@ def main(cfg):
 
     # model
     model = get_model(
-        cfg.model.name, FourierTransform(), InverseFourierTransform(),
+        FourierTransform(), InverseFourierTransform(),
         cfg.model.use_image, cfg.model.refinement
     )
     if model_sd is not None:

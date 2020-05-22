@@ -3,40 +3,50 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-MODEL_CHOICES = [
-    "spectrum_unet"
-]
+def get_model(ft, ift, use_image :bool, refinement :bool):
+    return WNet(ft, ift, use_image=use_image, refinement=refinement)
 
-def get_model(model_name, ft, ift, use_image :bool, refinement :bool):
-    if model_name == "spectrum_unet":
-        return SpectrumUNet(ft, ift, use_image=use_image, refinement=refinement)
-    else:
-        raise NotImplementedError(f"Model choices are {MODEL_CHOICES}")
+
+class WNet(nn.Module):
+    def __init__(self, fourier_transform, inverse_fourier_transform,
+                 use_image=False, refinement=False):
+        super().__init__()
+        self.refinement = refinement
+        self.spectrum_unet = SpectrumUNet(
+            fourier_transform, inverse_fourier_transform,
+            use_image=use_image,
+        )
+        if refinement:
+            self.refinement_unet = RefinementUNet()
+
+    def forward(self, inp, mask, gt=None):
+        out_img, out_spec, gt_spec = self.spectrum_unet(inp, mask, gt)
+        if self.refinement:
+            out_img = self.refinement_unet(out_img, inp, mask)
+        return out_img, out_spec, gt_spec
 
 
 class SpectrumUNet(nn.Module):
     spec_enc_in_ch = 8
     img_enc_in_ch = 8
     ft_ch = 64
-    gen_out_ch = 6
+    dec_out_ch = 6
 
-    def __init__(self, fourier_transform, inverse_fourier_transform,
-                 use_image=False, refinement=False):
+    def __init__(self, fourier_transform, inverse_fourier_transform, use_image=False):
         super().__init__()
         self.use_image = use_image
         self.image_encoder = ImageEncoder(self.img_enc_in_ch, self.ft_ch)
         self.spectrum_encoder = SpectrumEncoder(self.spec_enc_in_ch, self.ft_ch)
 
-        gen_in_ch = self.ft_ch * 24 if use_image else self.ft_ch * 16
-        self.spectrum_generator = SpectrumGenerator(
-            gen_in_ch, self.ft_ch, self.spec_enc_in_ch, self.gen_out_ch,
+        dec_in_ch = self.ft_ch * 24 if use_image else self.ft_ch * 16
+        self.spectrum_decoder = SpectrumDecoder(
+            dec_in_ch, self.ft_ch, self.spec_enc_in_ch, self.dec_out_ch,
         )
 
         self.to_spectrum = fourier_transform
         self.to_image = inverse_fourier_transform
     
     def forward(self, inp, mask, gt=None):
-        # Preprocess
         inp = torch.where(
             torch.cat([mask, mask, mask], dim=1) == 1, inp,
             torch.mean(inp.view(inp.shape[0], -1), dim=1)[:, None, None, None],
@@ -48,12 +58,34 @@ class SpectrumUNet(nn.Module):
         if self.use_image:
             image_feature = self.image_encoder(torch.cat([inp, mask], dim=1))[-1]
             features[-1] = torch.cat([features[-1], image_feature], dim=1)
-        out_spec = self.spectrum_generator(features)
+        out_spec = self.spectrum_decoder(features)
         out_img = self.to_image(out_spec)
 
         if gt is None:
             return out_img, out_spec
         return out_img, out_spec, self.to_spectrum(gt)
+
+
+class RefinementUNet(nn.Module):
+    enc_in_ch = 7
+    ft_ch = 64
+    dec_out_ch = 3
+
+    def __init__(self):
+        super().__init__()
+        self.encoder = RefinementEncoder(self.enc_in_ch, self.ft_ch)
+        self.decoder = RefinementDecoder(
+            self.ft_ch*16, self.ft_ch, self.enc_in_ch, self.dec_out_ch,
+        )
+    
+    def forward(self, sout, inp, mask):
+        inp = torch.where(
+            torch.cat([mask, mask, mask], dim=1) == 1, inp,
+            torch.mean(inp.view(inp.shape[0], -1), dim=1)[:, None, None, None],
+        )
+        features = self.encoder(torch.cat([sout, inp, mask], dim=1))
+        out = self.decoder(features)
+        return out
 
 
 class BaseEncoder(nn.Module):
@@ -78,20 +110,10 @@ class BaseEncoder(nn.Module):
         return features
 
 
-class ImageEncoder(BaseEncoder):
-    def __init__(self, in_ch, ft_ch):
-        super().__init__(in_ch, ft_ch)
-
-
-class SpectrumEncoder(BaseEncoder):
-    def __init__(self, in_ch, ft_ch):
-        super().__init__(in_ch, ft_ch)
-
-
-class SpectrumGenerator(nn.Module):
+class BaseDecoder(nn.Module):
     def __init__(self, in_ch, ft_ch, enc_in_ch, out_ch):
         super().__init__()
-        self.generator = nn.ModuleList([
+        self.decoder = nn.ModuleList([
             ConvLayer(in_ch, ft_ch*8, 3, stride=1, act="leaky_relu"),
             ConvLayer(        ft_ch*8*2, ft_ch*8, 3, stride=1, act="leaky_relu"),
             ConvLayer(        ft_ch*8*2, ft_ch*8, 3, stride=1, act="leaky_relu"),
@@ -104,18 +126,10 @@ class SpectrumGenerator(nn.Module):
 
     def forward(self, enc_features :list):
         y = enc_features.pop()
-        for layer in self.generator:
+        for layer in self.decoder:
             y = F.interpolate(y, scale_factor=2.0)
             y = layer(torch.cat([y, enc_features.pop()], dim=1))
         return y
-
-
-class RefinementNetwork(nn.Module):
-    def __init__(self, in_ch, ft_ch, out_ch):
-        super().__init__()
-        self.network = nn.Sequential(
-            ConvLayer(in_ch, ft_ch, 5, 1, 2, bias=True,)
-        )
 
 
 class ConvLayer(nn.Module):
@@ -141,3 +155,28 @@ class ConvLayer(nn.Module):
 
     def forward(self, x):
         return self.layers(x)
+
+
+class ImageEncoder(BaseEncoder):
+    def __init__(self, in_ch, ft_ch):
+        super().__init__(in_ch, ft_ch)
+
+
+class SpectrumEncoder(BaseEncoder):
+    def __init__(self, in_ch, ft_ch):
+        super().__init__(in_ch, ft_ch)
+
+
+class RefinementEncoder(BaseEncoder):
+    def __init__(self, in_ch, ft_ch):
+        super().__init__(in_ch, ft_ch)
+
+
+class SpectrumDecoder(BaseDecoder):
+    def __init__(self, in_ch, ft_ch, enc_in_ch, out_ch):
+        super().__init__(in_ch, ft_ch, enc_in_ch, out_ch)
+
+
+class RefinementDecoder(BaseDecoder):
+    def __init__(self, in_ch, ft_ch, enc_in_ch, out_ch):
+        super().__init__(in_ch, ft_ch, enc_in_ch, out_ch)
