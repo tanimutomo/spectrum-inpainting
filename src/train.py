@@ -41,8 +41,7 @@ def main(cfg):
 
     # model
     model = get_model(
-        FourierTransform(), InverseFourierTransform(),
-        cfg.model.use_image, cfg.model.refinement
+        cfg.model, FourierTransform(), InverseFourierTransform(),
     )
     if model_sd is not None:
         model.load_state_dict(model_sd)
@@ -72,6 +71,8 @@ def main(cfg):
 
 
 def is_config_valid(cfg):
+    if cfg.model.spec_weight:
+        cfg.model.spec_weight = os.path.join(get_original_cwd(), cfg.model.spec_weight)
     print(cfg.pretty())
 
 

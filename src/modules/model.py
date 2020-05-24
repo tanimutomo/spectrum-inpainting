@@ -3,26 +3,32 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def get_model(ft, ift, use_image :bool, refinement :bool):
-    return WNet(ft, ift, use_image=use_image, refinement=refinement)
+def get_model(cfg, ft, ift):
+    if cfg.training == "all":
+        return WNet(ft, ift, use_image=cfg.use_image)
+    elif cfg.training == "spec":
+        return SpectrumUNet(ft, ift, use_image=cfg.use_image)
+    elif cfg.training == "refine":
+        model = WNet(ft, ift, use_image=cfg.use_image)
+        model.spectrum_unet.load_state_dict(
+            torch.load(cfg.spec_weight, map_location="cpu")
+        )
+        return model
+    raise NotImplementedError(f"Invalid cfg.model.training: {cfg.training}")
 
 
 class WNet(nn.Module):
-    def __init__(self, fourier_transform, inverse_fourier_transform,
-                 use_image=False, refinement=False):
+    def __init__(self, fourier_transform, inverse_fourier_transform, use_image=False):
         super().__init__()
-        self.refinement = refinement
         self.spectrum_unet = SpectrumUNet(
             fourier_transform, inverse_fourier_transform,
             use_image=use_image,
         )
-        if refinement:
-            self.refinement_unet = RefinementUNet()
+        self.refinement_unet = RefinementUNet()
 
     def forward(self, inp, mask, gt=None):
         out_img, out_spec, gt_spec = self.spectrum_unet(inp, mask, gt)
-        if self.refinement:
-            out_img = self.refinement_unet(out_img, inp, mask)
+        out_img = self.refinement_unet(out_img, inp, mask)
         return out_img, out_spec, gt_spec
 
 

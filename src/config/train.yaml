@@ -4,12 +4,14 @@ defaults:
 
 model:
   use_image: False
-  refinement: False
+  training: all # [all, spec, refine]
+  spec_weight: "" # path/to/spectrum_unet/weight when training is refine
 
 loss:
   spec:
     norm: 1
     coef: 1.0
+    cut_idx: 0
   valid:
     norm: 1
     coef: 0.0 # 1.0
