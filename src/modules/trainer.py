@@ -64,15 +64,8 @@ class Trainer(object):
         )
 
     def test(self, test_loader) -> dict:
-        loss_meters = {
-            "spec": AverageMeter(),
-            "valid": AverageMeter(),
-            "hole": AverageMeter(),
-            "perc": AverageMeter(),
-            "style": AverageMeter(),
-            "tv": AverageMeter(),
-            "total": AverageMeter(),
-        }
+        loss_meters = {name: AverageMeter() for name in 
+                       ["spec", "valid", "hole", "perc", "style", "tv", "total"]}
         self.model.eval()
         with torch.no_grad():
             with tqdm(test_loader, ncols=80, leave=False) as pbar:
