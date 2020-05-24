@@ -1,19 +1,26 @@
+from omegaconf import OmegaConf
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 
 
+def get_loss(cfg):
+    cfg = OmegaConf.to_container(cfg, resolve=True)
+    return InpaintingLoss(
+        cfg["spec"], cfg["valid"], cfg["hole"], cfg["perc"], cfg["style"],
+    )
+
+
 class InpaintingLoss(nn.Module):
-    def __init__(self, cfg, extractor):
+    def __init__(self, spec, valid, hole, perc, style):
         super().__init__()
-        self.extractor = extractor
-        self.cfg = cfg
-        self.spec_criterion = SpectrumLoss(cfg.spec.cut_idx, cfg.spec.norm, cfg.spec.coef)
-        self.valid_criterion = NormLoss(cfg.valid.norm, cfg.valid.coef)
-        self.hole_criterion = NormLoss(cfg.hole.norm, cfg.hole.coef)
-        self.perc_criterion = NormLoss(cfg.perc.norm, cfg.perc.coef)
-        self.style_criterion = NormLoss(cfg.style.norm, cfg.style.coef)
+        self.extractor = VGG16FeatureExtractor()
+        self.spec_criterion = SpectrumLoss(spec.cut_idx, spec.norm, spec.coef)
+        self.valid_criterion = NormLoss(valid.norm, valid.coef)
+        self.hole_criterion = NormLoss(hole.norm, hole.coef)
+        self.perc_criterion = NormLoss(perc.norm, perc.coef)
+        self.style_criterion = NormLoss(style.norm, style.coef)
 
     def forward(self, inp, mask, gt, out_img, out_spec, gt_spec) -> dict:
         comp = mask * inp + (1 - mask) * out_img
@@ -26,15 +33,15 @@ class InpaintingLoss(nn.Module):
         loss_dict["hole"] = self.hole_criterion((1-mask) * out_img, (1-mask) * gt)
         loss_dict["tv"] = total_variation_loss(comp, mask)
 
-        if self.cfg.perc.coef or self.cfg.style.coef:
+        if self.perc_criterion.coef or self.style_criterion.coef:
             feats_out = self.extractor(out_img)
             feats_comp = self.extractor(comp)
             feats_gt = self.extractor(gt)
             for i in range(3):
-                if self.cfg.perc.coef:
+                if self.perc_criterion.coef:
                     loss_dict["perc"] += self.perc_criterion(feats_out[i], feats_gt[i])
                     loss_dict["perc"] += self.perc_criterion(feats_comp[i], feats_gt[i])
-                if self.cfg.style.coef:
+                if self.style_criterion.coef:
                     loss_dict["style"] += self.style_criterion(gram_matrix(feats_out[i]),
                                                                gram_matrix(feats_gt[i]))
                     loss_dict["style"] += self.style_criterion(gram_matrix(feats_comp[i]),

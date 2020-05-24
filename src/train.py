@@ -11,7 +11,7 @@ from modules.experiment import ExperimentController
 from modules.trainer import Trainer
 from modules.dataset import get_dataloader
 from modules.model import get_model
-from modules.loss import InpaintingLoss, VGG16FeatureExtractor
+from modules.loss import get_loss
 from modules.fourier import (
     FourierTransform,
     InverseFourierTransform,
@@ -61,7 +61,7 @@ def main(cfg):
         optimizer.load_state_dict(optimizer_sd)
 
     # Loss fucntion
-    criterion = InpaintingLoss(cfg.loss, VGG16FeatureExtractor()).to(device)
+    criterion = get_loss(cfg.loss).to(device)
 
     trainer = Trainer(device, model, experiment)
     trainer.prepare_training(train_loader, test_loader, criterion, optimizer)
