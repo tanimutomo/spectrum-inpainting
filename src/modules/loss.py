@@ -21,17 +21,10 @@ class InpaintingLoss(nn.Module):
         loss_dict = dict(spec=0.0, valid=0.0, hole=0.0,
                          tv=0.0, perc=0.0, style=0.0)
 
-        if self.cfg.spec.coef:
-            loss_dict["spec"] = self.spec_criterion(out_spec, gt_spec)
-
-        if self.cfg.valid.coef:
-            loss_dict["valid"] = self.valid_criterion(mask * out_img, mask * gt)
-
-        if self.cfg.hole.coef:
-            loss_dict["hole"] = self.hole_criterion((1-mask) * out_img, (1-mask) * gt)
-
-        if self.cfg.tv.coef:
-            loss_dict["tv"] = total_variation_loss(comp, mask)
+        loss_dict["spec"] = self.spec_criterion(out_spec, gt_spec)
+        loss_dict["valid"] = self.valid_criterion(mask * out_img, mask * gt)
+        loss_dict["hole"] = self.hole_criterion((1-mask) * out_img, (1-mask) * gt)
+        loss_dict["tv"] = total_variation_loss(comp, mask)
 
         if self.cfg.perc.coef or self.cfg.style.coef:
             feats_out = self.extractor(out_img)
@@ -124,6 +117,8 @@ class NormLoss(nn.Module):
         self.coef = coef
 
     def forward(self, output, target):
+        if not self.coef:
+            return 0.0
         return self.criterion(output, target) * self.coef
 
 
@@ -136,19 +131,9 @@ def gram_matrix(feat):
     return gram
 
 
-def dialation_holes(hole_mask):
-    b, ch, h, w = hole_mask.shape
-    dilation_conv = nn.Conv2d(ch, ch, 3, padding=1, bias=False).to(hole_mask)
-    torch.nn.init.constant_(dilation_conv.weight, 1.0)
-    with torch.no_grad():
-        output_mask = dilation_conv(hole_mask)
-    updated_holes = output_mask != 0
-    return updated_holes.float()
-
-
 def total_variation_loss(image, mask):
     hole_mask = 1 - mask
-    dilated_holes = dialation_holes(hole_mask)
+    dilated_holes = _dilation_holes(hole_mask)
     colomns_in_Pset = dilated_holes[:, :, :, 1:] * dilated_holes[:, :, :, :-1]
     rows_in_Pset = dilated_holes[:, :, 1:, :] * dilated_holes[:, :, :-1:, :]
     loss = torch.mean(torch.abs(colomns_in_Pset*(
@@ -156,3 +141,13 @@ def total_variation_loss(image, mask):
            torch.mean(torch.abs(rows_in_Pset*(
                 image[:, :, :1, :] - image[:, :, -1:, :])))
     return loss
+
+
+def _dilation_holes(hole_mask):
+    b, ch, h, w = hole_mask.shape
+    dilation_conv = nn.Conv2d(ch, ch, 3, padding=1, bias=False).to(hole_mask)
+    torch.nn.init.constant_(dilation_conv.weight, 1.0)
+    with torch.no_grad():
+        output_mask = dilation_conv(hole_mask)
+    updated_holes = output_mask != 0
+    return updated_holes.float()
