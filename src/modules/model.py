@@ -18,18 +18,33 @@ def get_model(cfg, ft, ift):
 
 
 class WNet(nn.Module):
-    def __init__(self, fourier_transform, inverse_fourier_transform, use_image=False):
+    def __init__(self, ft, ift, use_image=False, freeze_refine=True):
         super().__init__()
-        self.spectrum_unet = SpectrumUNet(
-            fourier_transform, inverse_fourier_transform,
-            use_image=use_image,
-        )
+        self.spectrum_unet = SpectrumUNet(ft, ift, use_image=use_image)
         self.refinement_unet = RefinementUNet()
+        self.freeze_refine = freeze_refine
 
     def forward(self, inp, mask, gt=None):
         out_img, out_spec, gt_spec = self.spectrum_unet(inp, mask, gt)
         out_img = self.refinement_unet(out_img, inp, mask)
         return out_img, out_spec, gt_spec
+
+    def train(self):
+        self.training = True
+        for module in self.children():
+            module.train(True)
+        if self.freeze_refine:
+            for module in self.refinement_unet.children():
+                module.train(False)
+        return self
+    
+    def parameters(self):
+        if self.freeze_refine:
+            named_params = self.spectrum_unet.named_parameters(recurse=True)
+        else:
+            named_params = self.named_parameters(recurse=True)
+        for _, param in named_params:
+            yield param
 
 
 class SpectrumUNet(nn.Module):
@@ -38,7 +53,7 @@ class SpectrumUNet(nn.Module):
     ft_ch = 64
     dec_out_ch = 6
 
-    def __init__(self, fourier_transform, inverse_fourier_transform, use_image=False):
+    def __init__(self, ft, ift, use_image=False):
         super().__init__()
         self.use_image = use_image
         self.image_encoder = ImageEncoder(self.img_enc_in_ch, self.ft_ch)
@@ -49,8 +64,8 @@ class SpectrumUNet(nn.Module):
             dec_in_ch, self.ft_ch, self.spec_enc_in_ch, self.dec_out_ch,
         )
 
-        self.to_spectrum = fourier_transform
-        self.to_image = inverse_fourier_transform
+        self.to_spectrum = ft
+        self.to_image = ift
     
     def forward(self, inp, mask, gt=None):
         inp = torch.where(

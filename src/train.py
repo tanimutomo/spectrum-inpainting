@@ -40,9 +40,7 @@ def main(cfg):
     last_iter, model_sd, optimizer_sd = experiment.load_ckpt()
 
     # model
-    model = get_model(
-        cfg.model, FourierTransform(), InverseFourierTransform(),
-    )
+    model = get_model(cfg.model, FourierTransform(), InverseFourierTransform())
     if model_sd is not None:
         model.load_state_dict(model_sd)
     model.to(device)
@@ -65,14 +63,16 @@ def main(cfg):
 
     trainer = Trainer(device, model, experiment)
     trainer.prepare_training(train_loader, test_loader, criterion, optimizer)
-    trainer.training(last_iter+1, cfg.optim.max_iter, cfg.img_interval, cfg.test_interval)
+    trainer.training(last_iter+1, cfg.optim.max_iter,
+                     cfg.img_interval, cfg.test_interval)
 
     experiment.save_model(trainer.model)
 
 
 def is_config_valid(cfg):
     if cfg.model.spec_weight:
-        cfg.model.spec_weight = os.path.join(get_original_cwd(), cfg.model.spec_weight)
+        cfg.model.spec_weight = os.path.join(get_original_cwd(),
+                                             cfg.model.spec_weight)
     print(cfg.pretty())
 
 
