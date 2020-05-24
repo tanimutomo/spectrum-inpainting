@@ -9,7 +9,7 @@ class InpaintingLoss(nn.Module):
         super().__init__()
         self.extractor = extractor
         self.cfg = cfg
-        self.spec_criterion = NormLoss(cfg.spec.norm, cfg.spec.coef)
+        self.spec_criterion = SpectrumLoss(cfg.spec.cut_idx, cfg.spec.norm, cfg.spec.coef)
         self.valid_criterion = NormLoss(cfg.valid.norm, cfg.valid.coef)
         self.hole_criterion = NormLoss(cfg.hole.norm, cfg.hole.coef)
         self.perc_criterion = NormLoss(cfg.perc.norm, cfg.perc.coef)
@@ -93,6 +93,23 @@ class Normalization(nn.Module):
             self.mean = self.mean.to(inp)
             self.std = self.std.to(inp)
         return (inp - self.mean) / self.std
+
+
+class SpectrumLoss(nn.Module):
+    def __init__(self, cut_idx :int, norm :int, coef :float):
+        super().__init__()
+        self.cut_idx = cut_idx
+        self.criterion = NormLoss(norm, coef)
+
+    def forward(self, output, target):
+        if not self.cut_idx:
+            return self.criterion(output, target)
+        ci = self.cut_idx
+        _, _, h, w = output.shape
+        return self.criterion(
+            output[..., h//2-(ci-1):h//2+ci, w//2-(ci-1):w//2+ci],
+            target[..., h//2-(ci-1):h//2+ci, w//2-(ci-1):w//2+ci],
+        )
 
 
 class NormLoss(nn.Module):
