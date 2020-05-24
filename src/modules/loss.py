@@ -16,11 +16,11 @@ class InpaintingLoss(nn.Module):
     def __init__(self, spec, valid, hole, perc, style):
         super().__init__()
         self.extractor = VGG16FeatureExtractor()
-        self.spec_criterion = SpectrumLoss(spec.cut_idx, spec.norm, spec.coef)
-        self.valid_criterion = NormLoss(valid.norm, valid.coef)
-        self.hole_criterion = NormLoss(hole.norm, hole.coef)
-        self.perc_criterion = NormLoss(perc.norm, perc.coef)
-        self.style_criterion = NormLoss(style.norm, style.coef)
+        self.spec_criterion = SpectrumLoss(spec["cut_idx"], spec["norm"], spec["coef"])
+        self.valid_criterion = NormLoss(valid["norm"], valid["coef"])
+        self.hole_criterion = NormLoss(hole["norm"], hole["coef"])
+        self.perc_criterion = NormLoss(perc["norm"], perc["coef"])
+        self.style_criterion = NormLoss(style["norm"], style["coef"])
 
     def forward(self, inp, mask, gt, out_img, out_spec, gt_spec) -> dict:
         comp = mask * inp + (1 - mask) * out_img
