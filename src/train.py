@@ -70,9 +70,10 @@ def main(cfg):
 
 
 def is_config_valid(cfg):
-    if cfg.model.spec_weight:
-        cfg.model.spec_weight = os.path.join(get_original_cwd(),
-                                             cfg.model.spec_weight)
+    if cfg.model.training == "refine":
+        if cfg.model.spec_weight:
+            cfg.model.spec_weight = os.path.join(get_original_cwd(),
+                                                 cfg.model.spec_weight)
     print(cfg.pretty())
 
 

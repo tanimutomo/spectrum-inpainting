@@ -1,0 +1,25 @@
+model:
+  training: spec
+
+optim:
+  lr: 0.04
+
+loss:
+  spec:
+    norm: 1
+    coef: 1.0
+    cut_idx: 0
+  valid:
+    norm: 1
+    coef: 0.0
+  hole:
+    norm: 1
+    coef: 0.0
+  tv:
+    coef: 0.0
+  perc:
+    norm: 1
+    coef: 0.0
+  style:
+    norm: 1
+    coef: 0.0
