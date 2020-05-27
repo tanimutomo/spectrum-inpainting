@@ -9,7 +9,8 @@ def get_model(cfg, ft, ift):
     elif cfg.training == "spec":
         return SpectrumUNet(ft, ift, use_image=cfg.use_image)
     elif cfg.training == "refine":
-        model = WNet(ft, ift, use_image=cfg.use_image)
+        model = WNet(ft, ift, use_image=cfg.use_image,
+                     freeze_spec=True)
         model.spectrum_unet.load_state_dict(
             torch.load(cfg.spec_weight, map_location="cpu")
         )
@@ -18,11 +19,11 @@ def get_model(cfg, ft, ift):
 
 
 class WNet(nn.Module):
-    def __init__(self, ft, ift, use_image=False, freeze_refine=True):
+    def __init__(self, ft, ift, use_image=False, freeze_spec=False):
         super().__init__()
         self.spectrum_unet = SpectrumUNet(ft, ift, use_image=use_image)
         self.refinement_unet = RefinementUNet()
-        self.freeze_refine = freeze_refine
+        self.freeze_spec = freeze_spec
 
     def forward(self, inp, mask, gt=None):
         out_img, out_spec, gt_spec = self.spectrum_unet(inp, mask, gt)
@@ -33,14 +34,14 @@ class WNet(nn.Module):
         self.training = True
         for module in self.children():
             module.train(True)
-        if self.freeze_refine:
-            for module in self.refinement_unet.children():
+        if self.freeze_spec:
+            for module in self.spectrum_unet.children():
                 module.train(False)
         return self
     
     def parameters(self):
-        if self.freeze_refine:
-            named_params = self.spectrum_unet.named_parameters(recurse=True)
+        if self.freeze_spec:
+            named_params = self.refinement_unet.named_parameters(recurse=True)
         else:
             named_params = self.named_parameters(recurse=True)
         for _, param in named_params:
