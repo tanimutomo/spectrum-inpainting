@@ -30,7 +30,7 @@ loss:
 optim:
   method: Adam
   max_iter: 100000
-  initial_lr: 0.04 # 0.0004
+  lr: 0.04 # 0.0004
   weight_decay: 0
 
 comet:

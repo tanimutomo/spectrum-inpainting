@@ -50,7 +50,7 @@ def main(cfg):
     # optimizer
     if cfg.optim.method == "Adam":
         optimizer = torch.optim.Adam(
-            model.parameters(), lr=cfg.optim.initial_lr,
+            model.parameters(), lr=cfg.optim.lr,
             weight_decay=cfg.optim.weight_decay,
         )
     else:
