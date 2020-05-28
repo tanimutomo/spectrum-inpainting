@@ -45,7 +45,7 @@ class PercStyleLoss(nn.Module):
         self.extractor = VGG16FeatureExtractor()
         self.perc_criterion = NormLoss(perc_norm, perc_coef)
         self.style_criterion = NormLoss(style_norm, style_coef)
-        self.perc, self.style = perc_coef == 0, style_coef == 0
+        self.perc, self.style = perc_coef != 0, style_coef != 0
 
     def forward(self, out, comp, gt):
         if not self.perc and not self.style:

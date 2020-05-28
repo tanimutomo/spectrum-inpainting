@@ -38,6 +38,12 @@ class WNet(nn.Module):
             for module in self.spectrum_unet.children():
                 module.train(False)
         return self
+
+    def eval(self):
+        self.training = False
+        for module in self.children():
+            module.train(False)
+        return self
     
     def parameters(self):
         if self.freeze_spec:
