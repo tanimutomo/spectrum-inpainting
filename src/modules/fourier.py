@@ -3,23 +3,37 @@ import torch.nn as nn
 
 
 class FourierTransform(object):
-    def __init__(self):
-        pass
+    def __init__(self, cutidx=None):
+        self.cutidx = cutidx
 
     def __call__(self, x):
         z = torch.fft(torch.stack([x, x], dim=-1), 2)
         z = zshift(z)
         z = torch.cat([z[..., 0], z[..., 1]], dim=1)
+        if not self.cutidx:
+            return z
+
+        b, c, h, w = z.shape
+        ci = self.cutidx
+        z_c = z[..., h//2-(ci-1):h//2+ci, w//2-(ci-1):w//2+ci]
+        z = torch.zeros(*z.shape, device=z.device)
+        z[..., h//2-(ci-1):h//2+ci, w//2-(ci-1):w//2+ci] = z_c
         return z
 
 
 class InverseFourierTransform(object):
-    def __init__(self):
-        pass
+    def __init__(self, cutidx=None):
+        self.cutidx = cutidx
 
     def __call__(self, z):
-        C = z.shape[1]
-        z = torch.stack([z[:, :C//2, ...], z[:, C//2:, ...]], dim=-1)
+        b, c, h, w = z.shape
+        if not self.cutidx:
+            ci = self.cutidx
+            z_c = z[..., h//2-(ci-1):h//2+ci, w//2-(ci-1):w//2+ci]
+            z = torch.zeros(*z.shape, device=z.device)
+            z[..., h//2-(ci-1):h//2+ci, w//2-(ci-1):w//2+ci] = z_c
+
+        z = torch.stack([z[:, :c//2, ...], z[:, c//2:, ...]], dim=-1)
         z = zshift(z)
         x = torch.ifft(z, 2)[..., 0]
         return batch_standadize(x)
