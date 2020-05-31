@@ -1,0 +1,7 @@
+data:
+  root: data
+  train_img_dir: 10/img
+  test_img_dir: 10/img
+  train_mask_dir: 10/mask
+  test_mask_dir: 10/mask
+  batch_size: 32

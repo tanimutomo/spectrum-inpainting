@@ -1,0 +1,7 @@
+data:
+  root: /home/tanimu/data
+  train_img_dir: places2_256/train
+  test_img_dir: places2_256/test
+  train_mask_dir: irregular_mask/train
+  test_mask_dir: irregular_mask/test
+  batch_size: 64
