@@ -10,6 +10,7 @@ import torch.nn as nn
 from modules.experiment import ExperimentController
 from modules.trainer import Trainer
 from modules.dataset import get_dataloader
+from modules.transform import get_mask_transform
 from modules.model import get_model
 from modules.loss import get_loss
 from modules.fourier import (
@@ -35,6 +36,8 @@ def main(cfg):
 
     train_loader = get_dataloader(cfg.data, train=True)
     test_loader = get_dataloader(cfg.data, train=False)
+    train_mask_tf = get_mask_transform(train=True)
+    test_mask_tf = get_mask_transform(train=False)
 
     # resume training
     last_iter, model_sd, optimizer_sd = experiment.load_ckpt()
@@ -66,7 +69,8 @@ def main(cfg):
     criterion = get_loss(cfg.loss).to(device)
 
     trainer = Trainer(device, model, experiment)
-    trainer.prepare_training(train_loader, test_loader, criterion, optimizer)
+    trainer.prepare_training(train_loader, test_loader, train_mask_tf,
+                             test_mask_tf, criterion, optimizer)
     trainer.training(last_iter+1, cfg.optim.max_iter,
                      cfg.img_interval, cfg.test_interval)
 
