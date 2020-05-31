@@ -27,7 +27,7 @@ class InverseFourierTransform(object):
 
     def __call__(self, z):
         b, c, h, w = z.shape
-        if not self.cutidx:
+        if self.cutidx:
             ci = self.cutidx
             z_c = z[..., h//2-(ci-1):h//2+ci, w//2-(ci-1):w//2+ci]
             z = torch.zeros(*z.shape, device=z.device)
