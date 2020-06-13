@@ -41,7 +41,8 @@ class Places2(Dataset):
         self.mask_transform = mask_transform
 
         self.img_paths = glob(f"{root}/{img_dir}/**/*.jpg", recursive=True)
-        self.mask_paths = glob(f"{root}/{mask_dir}/*.png", recursive=True)
+        self.mask_paths = glob(f"{root}/{mask_dir}/*.png", recursive=True) + \
+                          glob(f"{root}/{mask_dir}/*.jpg", recursive=True) 
 
     def __len__(self):
         return len(self.img_paths)

@@ -56,7 +56,7 @@ class WNet(nn.Module):
 
 class SpectrumUNet(nn.Module):
     spec_enc_in_ch = 8
-    img_enc_in_ch = 8
+    img_enc_in_ch = 4
     ft_ch = 64
     dec_out_ch = 6
 
