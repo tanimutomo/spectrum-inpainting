@@ -1,5 +1,6 @@
 comet-ml==3.1.6
 hydra-core==0.11.3
+kornia==0.2.2
 moment==0.10
 torch==1.3.1
 torchvision==0.4.2
