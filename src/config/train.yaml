@@ -4,7 +4,9 @@ defaults:
   - data: ???
 
 model:
+  num_layers: 5 # [5, 8]
   use_image: False
+  unite_method: raw # [raw, pool, ft, prod, pool_prod, ft_prod]
 
 optim:
   method: Adam
@@ -20,4 +22,4 @@ img_interval: 100
 test_interval: 1000 # save ckpt when testing
 seed: null
 gpu_ids:
-  - 1
+  - 0

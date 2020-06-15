@@ -2,7 +2,7 @@ model:
   training: spec
 
 optim:
-  lr: 0.08
+  lr: 0.001
 
 loss:
   spec:
