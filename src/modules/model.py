@@ -19,7 +19,7 @@ def get_model(cfg, ft, ift):
 
 
 class WNet(nn.Module):
-    def __init__(self, num_layers, ft, ift, use_image=False, unite_method="raw", freeze_spec=False):
+    def __init__(self, num_layers, ft, ift, use_image=False, unite_method="cat", freeze_spec=False):
         super().__init__()
         self.spectrum_unet = SpectrumUNet(num_layers, ft, ift, use_image=use_image, unite_method=unite_method)
         self.refinement_unet = RefinementUNet(num_layers)
@@ -60,24 +60,25 @@ class SpectrumUNet(nn.Module):
     ft_ch = 64
     dec_out_ch = 6
 
-    def __init__(self, num_layers, ft, ift, use_image=False, unite_method="raw"):
+    def __init__(self, num_layers, ft, ift, use_image=False, unite_method="cat"):
         super().__init__()
         self.ft = ft
         self.ift = ift
         self.use_image = use_image
         self.unite_method = unite_method
     
-        self.image_encoder = ImageEncoder(num_layers, self.img_enc_in_ch, self.ft_ch)
-        self.spectrum_encoder = SpectrumEncoder(num_layers, self.spec_enc_in_ch, self.ft_ch)
-
-        dec_in_ch = self.ft_ch * 16
+        dec_in_ch = self.ft_ch * 8*2
+        img_enc_out_ch = self.ft_ch * 8
+        spec_enc_out_ch = self.ft_ch * 8
         if use_image:
-            if unite_method in ["raw", "pool"]:
-                dec_in_ch = self.ft_ch * 24
-            elif unite_method == "ft":
-                dec_in_ch = self.ft_ch * 32
+            if "cat" in unite_method:
+                dec_in_ch = self.ft_ch * 8*3
+            if "ft" in unite_method:
+                img_enc_out_ch = self.ft_ch * 4
 
-        self.spectrum_decoder = SpectrumDecoder(
+        self.image_encoder = BaseEncoder(num_layers, self.img_enc_in_ch, self.ft_ch, img_enc_out_ch)
+        self.spectrum_encoder = BaseEncoder(num_layers, self.spec_enc_in_ch, self.ft_ch, spec_enc_out_ch)
+        self.spectrum_decoder = BaseDecoder(
             num_layers, dec_in_ch, self.ft_ch, self.spec_enc_in_ch, self.dec_out_ch,
         )
 
@@ -92,6 +93,7 @@ class SpectrumUNet(nn.Module):
         features = self.spectrum_encoder(torch.cat([inp_spec, mask_spec], dim=1))
         if self.use_image:
             image_feature = self.image_encoder(torch.cat([inp, mask], dim=1))[-1]
+            image_feature = self.ft(image_feature) if "ft" in self.unite_method else image_feature
             features[-1] = unite_enc_features(features[-1], image_feature, self.unite_method)
         out_spec = self.spectrum_decoder(features)
         out_img = self.ift(out_spec)
@@ -108,8 +110,8 @@ class RefinementUNet(nn.Module):
 
     def __init__(self, num_layers):
         super().__init__()
-        self.encoder = RefinementEncoder(num_layers, self.enc_in_ch, self.ft_ch)
-        self.decoder = RefinementDecoder(
+        self.encoder = BaseEncoder(num_layers, self.enc_in_ch, self.ft_ch)
+        self.decoder = BaseDecoder(
             num_layers, self.ft_ch*16, self.ft_ch, self.enc_in_ch, self.dec_out_ch,
         )
     
@@ -124,16 +126,16 @@ class RefinementUNet(nn.Module):
 
 
 class BaseEncoder(nn.Module):
-    def __init__(self, num_layers, in_ch, ft_ch):
+    def __init__(self, num_layers, in_ch, ft_ch, out_ch):
         super().__init__()
         encoder = [
             ConvLayer(  in_ch,   ft_ch, 7, padding=3, bn=False),
             ConvLayer(  ft_ch, ft_ch*2, 5, padding=2),
             ConvLayer(ft_ch*2, ft_ch*4, 5, padding=2),
-            ConvLayer(ft_ch*4, ft_ch*8, 3),
-            ConvLayer(ft_ch*8, ft_ch*8, 3),
+            ConvLayer(ft_ch*4,  out_ch, 3),
+            ConvLayer( out_ch,  out_ch, 3),
         ]
-        encoder.extend([ConvLayer(ft_ch*8, ft_ch*8, 3)]*(num_layers - 5))
+        encoder.extend([ConvLayer(out_ch, out_ch, 3)]*(num_layers - 5))
         self.encoder = nn.ModuleList(encoder)
     
     def forward(self, x):
@@ -190,42 +192,14 @@ class ConvLayer(nn.Module):
         return self.layers(x)
 
 
-class ImageEncoder(BaseEncoder):
-    def __init__(self, num_layers, in_ch, ft_ch):
-        super().__init__(num_layers, in_ch, ft_ch)
-
-
-class SpectrumEncoder(BaseEncoder):
-    def __init__(self, num_layers, in_ch, ft_ch):
-        super().__init__(num_layers, in_ch, ft_ch)
-
-
-class RefinementEncoder(BaseEncoder):
-    def __init__(self, num_layers, in_ch, ft_ch):
-        super().__init__(num_layers, in_ch, ft_ch)
-
-
-class SpectrumDecoder(BaseDecoder):
-    def __init__(self, num_layers, in_ch, ft_ch, enc_in_ch, out_ch):
-        super().__init__(num_layers, in_ch, ft_ch, enc_in_ch, out_ch)
-
-
-class RefinementDecoder(BaseDecoder):
-    def __init__(self, num_layers, in_ch, ft_ch, enc_in_ch, out_ch):
-        super().__init__(num_layers, in_ch, ft_ch, enc_in_ch, out_ch)
-
-
 def unite_enc_features(spec_feat, img_feat, unite_method):
-    if unite_method == "raw":
-        return torch.cat([spec_feat, img_feat], dim=1)
-    elif unite_method == "pool":
+    if "pool" in unite_method:
         d = spec_feat.shape[2]
-        return torch.cat([
-            spec_feat, F.adaptive_avg_pool2d(img_feat, 1).repeat(1, 1, d, d),
-        ], dim=1)
-    elif unite_method == "prod":
+        img_feat = F.adaptive_avg_pool2d(img_feat, 1).repeat(1, 1, d, d)
+
+    if "cat" in unite_method:
+        return torch.cat([spec_feat, img_feat], dim=1)
+    elif "prod" in unite_method:
         return spec_feat * img_feat
-    elif unite_method == "pool_prod":
-        return spec_feat * F.adaptive_avg_pool2d(img_feat, 1)
     else:
         raise NotImplementedError()

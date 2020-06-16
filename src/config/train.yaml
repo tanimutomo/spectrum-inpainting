@@ -6,7 +6,7 @@ defaults:
 model:
   num_layers: 5 # [5, 8]
   use_image: False
-  unite_method: raw # [raw, pool, ft, prod, pool_prod, ft_prod]
+  unite_method: cat # [cat, pool_cat, ft_cat, prod, pool_prod, ft_prod]
 
 optim:
   method: Adam
