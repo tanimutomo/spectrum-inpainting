@@ -106,11 +106,12 @@ class SpectrumUNet(nn.Module):
 class RefinementUNet(nn.Module):
     enc_in_ch = 7
     ft_ch = 64
+    enc_out_ch = ft_ch * 8
     dec_out_ch = 3
 
     def __init__(self, num_layers):
         super().__init__()
-        self.encoder = BaseEncoder(num_layers, self.enc_in_ch, self.ft_ch)
+        self.encoder = BaseEncoder(num_layers, self.enc_in_ch, self.ft_ch, self.enc_out_ch)
         self.decoder = BaseDecoder(
             num_layers, self.ft_ch*16, self.ft_ch, self.enc_in_ch, self.dec_out_ch,
         )
