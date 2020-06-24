@@ -3,7 +3,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def get_model(cfg, ft, ift):
+def get_model(cfg, ft, ift, test=False):
+    if test:
+        if cfg.arch == "wnet":
+            return WNet(cfg.num_layers, ft, ift, use_image=cfg.use_image, unite_method=cfg.unite_method)
+        elif cfg.arch == "spec_unet":
+            return SpectrumUNet(cfg.num_layers, ft, ift, use_image=cfg.use_image, unite_method=cfg.unite_method)
+        else:
+            raise NotImplementedError(f"Invalid cfg.model.arch: {cfg.arch}")
+
     if cfg.training == "all":
         return WNet(cfg.num_layers, ft, ift, use_image=cfg.use_image, unite_method=cfg.unite_method)
     elif cfg.training == "spec":
@@ -85,7 +93,7 @@ class SpectrumUNet(nn.Module):
     def forward(self, inp, mask, gt=None):
         inp = torch.where(
             torch.cat([mask, mask, mask], dim=1) == 1, inp,
-            torch.mean(inp.view(inp.shape[0], -1), dim=1)[:, None, None, None],
+            torch.ones_like(inp) * torch.mean(inp.view(inp.shape[0], -1), dim=1),
         )
         inp_spec = self.ft(inp)
         mask_spec = self.ft(mask)

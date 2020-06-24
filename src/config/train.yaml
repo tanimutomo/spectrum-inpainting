@@ -1,3 +1,5 @@
+mode: train
+
 defaults:
   - experiment: ???
   - training: ??? # [spec, refine]

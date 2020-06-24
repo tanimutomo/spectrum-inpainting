@@ -1,6 +1,6 @@
 hydra:
   run:
-    dir: log/train/${experiment.name}
+    dir: log/${mode}/${experiment.name}
 
 experiment:
   mode: new

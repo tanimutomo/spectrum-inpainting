@@ -1,6 +1,6 @@
 hydra:
   run:
-    dir: log/train/debug
+    dir: log/${mode}/debug
 
 experiment:
   mode: debug
