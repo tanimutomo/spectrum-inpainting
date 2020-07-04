@@ -84,7 +84,8 @@ class SpectrumUNet(nn.Module):
             if "ft" in unite_method:
                 img_enc_out_ch = self.ft_ch * 4
 
-        self.image_encoder = BaseEncoder(num_layers, self.img_enc_in_ch, self.ft_ch, img_enc_out_ch)
+        if self.use_image:
+            self.image_encoder = BaseEncoder(num_layers, self.img_enc_in_ch, self.ft_ch, img_enc_out_ch)
         self.spectrum_encoder = BaseEncoder(num_layers, self.spec_enc_in_ch, self.ft_ch, spec_enc_out_ch)
         self.spectrum_decoder = BaseDecoder(
             num_layers, dec_in_ch, self.ft_ch, self.spec_enc_in_ch, self.dec_out_ch,
@@ -93,7 +94,7 @@ class SpectrumUNet(nn.Module):
     def forward(self, inp, mask, gt=None):
         inp = torch.where(
             torch.cat([mask, mask, mask], dim=1) == 1, inp,
-            torch.ones_like(inp) * torch.mean(inp.view(inp.shape[0], -1), dim=1),
+            torch.mean(inp.view(inp.shape[0], -1), dim=1)[:, None, None, None],
         )
         inp_spec = self.ft(inp)
         mask_spec = self.ft(mask)
