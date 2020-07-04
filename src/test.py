@@ -47,6 +47,7 @@ def main(cfg):
     mask = Image.open(os.path.join(get_original_cwd(), cfg.input.mask)).convert("L")
     gt = TF.to_tensor(gt)
     mask = TF.to_tensor(mask)
+    mask = get_mask_transform(False)(mask)
     inp = gt * mask
 
     # predict and save
@@ -56,7 +57,8 @@ def main(cfg):
         gt=gt.unsqueeze(0).to(device),
     )
     out = out.squeeze().cpu().detach()
-    out = torch.clamp(out, 0, 1)
+    # out = torch.clamp(out, 0, 1)
+    out = (out - out.min()) / (out.max() - out.min())
     TF.to_pil_image(out).save("output_raw.png")
     TF.to_pil_image(mask * gt + (1 - mask) * out).save("output.png")
 
