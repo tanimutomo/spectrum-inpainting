@@ -20,7 +20,7 @@ from modules.fourier import (
 from modules.misc import set_seed
 
 
-@hydra.main(config_path="config/test.yaml")
+@hydra.main(config_path="config/predict.yaml")
 def main(cfg):
     is_config_valid(cfg)
     if cfg.seed is not None:
