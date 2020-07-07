@@ -64,6 +64,8 @@ def main(cfg):
 
 
 def is_config_valid(cfg):
+    if not cfg.weight_path:
+        raise RuntimeError("weight_path not selected.")
     print(cfg.pretty())
 
 
