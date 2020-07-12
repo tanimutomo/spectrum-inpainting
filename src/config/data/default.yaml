@@ -1,7 +1,9 @@
 data:
   root: /home/tanimu/data
-  train_img_dir: places2_256/train
-  test_img_dir: places2_256/test
-  train_mask_dir: geometric_mask/train
-  test_mask_dir: geometric_mask/test
+  img_dir: places2_256
+  train_img_dir: ${data.img_dir}/train
+  test_img_dir: ${data.img_dir}/test
+  mask_dir: geometric_mask
+  train_mask_dir: ${data.mask_dir}/train
+  test_mask_dir: ${data.mask_dir}/test
   batch_size: 32
