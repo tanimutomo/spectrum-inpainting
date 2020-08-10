@@ -9,6 +9,8 @@ def get_model(cfg, ft, ift, test=False):
             return WNet(cfg.num_layers, ft, ift, use_image=cfg.use_image, unite_method=cfg.unite_method)
         elif cfg.arch == "spec_unet":
             return SpectrumUNet(cfg.num_layers, ft, ift, use_image=cfg.use_image, unite_method=cfg.unite_method)
+        elif cfg.arch == "mlp":
+            return MLP(cfg.in_fs, cfg.gray, ft, ift)
         else:
             raise NotImplementedError(f"Invalid cfg.model.arch: {cfg.arch}")
 
@@ -23,6 +25,8 @@ def get_model(cfg, ft, ift, test=False):
             torch.load(cfg.spec_weight, map_location="cpu")
         )
         return model
+    elif cfg.training == "mlp":
+        return MLP(cfg.in_fs, cfg.gray, ft, ift)
     raise NotImplementedError(f"Invalid cfg.model.training: {cfg.training}")
 
 
@@ -213,3 +217,53 @@ def unite_enc_features(spec_feat, img_feat, unite_method):
         return spec_feat * img_feat
     else:
         raise NotImplementedError()
+
+
+class MLP(nn.Module):
+    def __init__(self, in_fs :int, gray :bool, ft, ift):
+        super().__init__()
+        fs = in_fs**2 * 4 if gray else in_fs**2 * 8
+        out_fs = fs//2 if gray else fs//4*3
+        self.layers = nn.Sequential(
+            LinearLayer(fs, fs//8),
+            LinearLayer(fs//8, fs//16),
+            LinearLayer(fs//16, fs//16),
+            LinearLayer(fs//16, fs//8),
+            LinearLayer(fs//8, out_fs, bn=False, relu=False),
+        )
+        self.ft = ft
+        self.ift = ift
+
+    def forward(self, inp, mask, gt=None):
+        inp_spec = self.ft(inp)
+        mask_spec = self.ft(mask)
+        b, c, w, h = inp_spec.shape
+
+        out_spec_flat = self.layers(
+            torch.cat([
+                inp_spec.view(b, c*w*h),
+                mask_spec.view(b, 2*w*h),
+            ], dim=1),
+        )
+        out_spec = out_spec_flat.view(b, c, w, h)
+        out_img = self.ift(out_spec)
+
+        if gt is None:
+            return out_img, out_spec
+        return out_img, out_spec, self.ft(gt)
+
+
+class LinearLayer(nn.Module):
+    def __init__(self, in_c :int, out_c :int, bias :bool =True,
+                 bn :bool =True, relu :bool =True):
+        super().__init__()
+        self.layers = []
+        self.layers.append(nn.Linear(in_c, out_c, bias))
+        if bn:
+            self.layers.append(nn.BatchNorm1d(out_c))
+        if relu:
+            self.layers.append(nn.ReLU())
+        self.layers = nn.Sequential(*self.layers)
+
+    def forward(self, x):
+        return self.layers(x)
