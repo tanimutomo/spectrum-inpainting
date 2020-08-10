@@ -3,10 +3,10 @@ import torch
 import torch.nn as nn
 
 
-def get_mask_transform(train :bool):
+def get_mask_transform(train :bool, size :int):
     if train:
         return nn.Sequential(
-            torch.nn.Upsample(size=256),
+            torch.nn.Upsample(size=size),
             # K.RandomResizedCrop((256, 256)),
             # K.RandomVerticalFlip(),
             # K.RandomHorizontalFlip(),
@@ -14,7 +14,7 @@ def get_mask_transform(train :bool):
         )
     else:
         return nn.Sequential(
-            torch.nn.Upsample(size=256),
+            torch.nn.Upsample(size=size),
             # Inverse(),
             Binarize(),
         )

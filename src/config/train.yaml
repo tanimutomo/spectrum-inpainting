@@ -5,6 +5,10 @@ defaults:
   - training: ??? # [spec, refine]
   - data: ???
 
+data:
+  resol: 256
+  gray: False
+
 model:
   num_layers: 5 # [5, 8]
   use_image: False

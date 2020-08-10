@@ -15,10 +15,18 @@ def get_dataloader(cfg, train :bool):
     img_dir = cfg.train_img_dir if train else cfg.test_img_dir
     mask_dir = cfg.train_mask_dir if train else cfg.test_mask_dir
 
-    img_trainsform = transforms.ToTensor()
-    mask_transform = transforms.ToTensor()
+    img_transform = transforms.Compose([
+        transforms.Resize(cfg.resol),
+        transforms.Grayscale() if cfg.gray else transforms.Lambda(lambda x:x),
+        transforms.ToTensor(),
+    ])
+    mask_transform = transforms.Compose([
+        transforms.Resize(cfg.resol),
+        transforms.ToTensor(),
+    ])
+
     dataset = Places2(data_root, img_dir, mask_dir,
-                      img_trainsform, mask_transform, train=train)
+                      img_transform, mask_transform, train=train)
     data_loader = DataLoader(dataset, batch_size=cfg.batch_size,
                              shuffle=train, num_workers=8)
     if train:

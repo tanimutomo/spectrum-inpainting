@@ -36,8 +36,8 @@ def main(cfg):
 
     train_loader = get_dataloader(cfg.data, train=True)
     test_loader = get_dataloader(cfg.data, train=False)
-    train_mask_tf = get_mask_transform(train=True)
-    test_mask_tf = get_mask_transform(train=False)
+    train_mask_tf = get_mask_transform(True, cfg.data.resol)
+    test_mask_tf = get_mask_transform(False, cfg.data.resol)
 
     # resume training
     last_iter, model_sd, optimizer_sd = experiment.load_ckpt()

@@ -60,10 +60,10 @@ class Trainer(object):
 
         loss_dict['total'] = loss
         out_comp = mask * inp + (1 - mask) * out_img
-        mask_3c = torch.cat([mask]*3, dim=1)
+        mask_ = torch.cat([mask]*out_img.shape[1], dim=1)
         return (
             {k: v.item() for k, v in loss_dict.items() if isinstance(v, torch.Tensor)},
-            torch.stack([inp[0], mask_3c[0], out_img[0], out_comp[0], gt[0]],
+            torch.stack([inp[0], mask_[0], out_img[0], out_comp[0], gt[0]],
                         dim=0).cpu().detach(),
         )
 
@@ -94,9 +94,9 @@ class Trainer(object):
                     break
 
         out_comp = mask * inp + (1 - mask) * out_img
-        mask_3c = torch.cat([mask]*3, dim=1)
+        mask_ = torch.cat([mask]*out_img.shape[1], dim=1)
         return (
             loss_meters,
-            torch.stack([inp[0], mask_3c[0], out_img[0], out_comp[0], gt[0]],
+            torch.stack([inp[0], mask_[0], out_img[0], out_comp[0], gt[0]],
                         dim=0).cpu().detach(),
         )
